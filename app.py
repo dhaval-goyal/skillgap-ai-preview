@@ -171,6 +171,7 @@ _COMPILED = [
 ]
 
 def detect_skill_mentions(text):
+    """Return unique skills mentioned, preserving the existing interface."""
     if not isinstance(text, str) or not text.strip():
         return []
     found = []
@@ -181,11 +182,115 @@ def detect_skill_mentions(text):
             seen.add(name.casefold())
     return found
 
+
+def _sentence_for_span(text, start, end):
+    """Return the local clause around a skill, not the whole sentence."""
+    left = max(
+        text.rfind(".", 0, start),
+        text.rfind("!", 0, start),
+        text.rfind("?", 0, start),
+        text.rfind("\n", 0, start),
+    ) + 1
+
+    right_candidates = [
+        pos for pos in (
+            text.find(".", end),
+            text.find("!", end),
+            text.find("?", end),
+            text.find("\n", end),
+        ) if pos != -1
+    ]
+    right = min(right_candidates) if right_candidates else len(text)
+    sentence = text[left:right]
+
+    # Split clauses at punctuation and contrast markers.
+    # Do not split on "and", so "Python and SQL are required" stays together.
+    boundaries = list(re.finditer(
+        r"[,;]|\b(?:but|however|whereas|although|while)\b",
+        sentence,
+        flags=re.I,
+    ))
+    cuts = [0] + [m.end() for m in boundaries] + [len(sentence)]
+    starts = [0] + [m.start() for m in boundaries]
+
+    relative_start = start - left
+    relative_end = end - left
+
+    for i in range(len(starts)):
+        clause_start = starts[i]
+        clause_end = cuts[i + 1]
+        if clause_start <= relative_start and relative_end <= clause_end:
+            return sentence[clause_start:clause_end].strip(" ,;")
+
+    return sentence.strip()
+
+def _classify_context(context):
+    """Heuristic status label; always conservative when wording is unclear."""
+    s = context.casefold()
+
+    excluded = (
+        r"\bnot\s+(?:explicitly\s+)?(?:required|needed|necessary|mandatory)\b",
+        r"\bnot\s+a\s+requirement\b",
+        r"\bno\s+need\s+for\b",
+        r"\b(?:do\s+not|don't|doesn't|does\s+not)\s+need\b",
+        r"\bnot\s+looking\s+for\b",
+        r"\bexclude(?:d)?\b",
+    )
+    if any(re.search(p, s) for p in excluded):
+        return "Not required / excluded"
+
+    if re.search(
+        r"\boptional\b|\bnice[- ]to[- ]have\b|\bnot essential\b",
+        s,
+    ):
+        return "Optional"
+
+    if re.search(
+        r"\bpreferred\b|\bdesirable\b|\bideally\b|\ba plus\b|\bbonus\b",
+        s,
+    ):
+        return "Preferred"
+
+    if re.search(
+        r"\b(?:required|mandatory|essential)\b"
+        r"|\bmust[- ]have\b|\bmust have\b"
+        r"|\brequired to\b|\bneed to have\b",
+        s,
+    ):
+        return "Required"
+
+    return "Mentioned — status unclear"
+
+
+def classify_skill_mentions(text):
+    """Return (skill, status) pairs based on the local sentence context."""
+    if not isinstance(text, str) or not text.strip():
+        return []
+
+    results = []
+    for name, pattern in _COMPILED:
+        contexts = [
+            _sentence_for_span(text, m.start(), m.end())
+            for m in pattern.finditer(text)
+        ]
+        if not contexts:
+            continue
+
+        statuses = {_classify_context(c) for c in contexts}
+        if len(statuses) == 1:
+            status = next(iter(statuses))
+        else:
+            status = "Mixed signals — review"
+        results.append((name, status))
+
+    return results
+
+
 st.header("Job description skill mentions")
 st.write(
-    "Paste a job description to find skills from a fixed vocabulary. "
-    "This prototype matches mentions; it does not interpret whether a skill "
-    "is required, optional, or explicitly not needed."
+    "Find skills from a fixed vocabulary and estimate their requirement status "
+    "using simple wording rules. Labels are heuristic and may be wrong; "
+    "review the original job description before making decisions."
 )
 
 with st.form("job_description_form"):
@@ -195,18 +300,27 @@ with st.form("job_description_form"):
         placeholder="Paste the job description here...",
         key="skillgap_job_description",
     )
-    detect_submitted = st.form_submit_button("Detect skill mentions")
+    detect_submitted = st.form_submit_button("Analyze skill mentions")
 
 if detect_submitted:
-    st.session_state["skillgap_detected_skills"] = detect_skill_mentions(
-        job_description
+    st.session_state["skillgap_classified_mentions"] = (
+        classify_skill_mentions(job_description)
     )
     st.session_state["skillgap_description_submitted"] = True
 
 if st.session_state.get("skillgap_description_submitted", False):
-    detected = st.session_state.get("skillgap_detected_skills", [])
-    if detected:
-        st.success(f"Detected {len(detected)} unique skill mentions.")
-        st.write(", ".join(detected))
+    classified = st.session_state.get("skillgap_classified_mentions", [])
+    if classified:
+        st.success(f"Analyzed {len(classified)} unique skill mentions.")
+        st.dataframe(
+            [{"Skill": skill, "Estimated status": status}
+             for skill, status in classified],
+            use_container_width=True,
+            hide_index=True,
+        )
+        st.caption(
+            "Heuristic labels can misread complex sentences, "
+            "negation, or conflicting requirements. Verify each label."
+        )
     else:
         st.info("No skills from the supported vocabulary were detected.")
