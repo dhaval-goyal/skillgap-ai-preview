@@ -1,7 +1,81 @@
 import pandas as pd
 import streamlit as st
 
-st.set_page_config(page_title="SkillGap AI", page_icon="🎯", layout="wide")
+st.set_page_config(st.markdown("""
+<style>
+:root {
+    --sg-bg: #0b1220;
+    --sg-panel: #111c30;
+    --sg-border: #263650;
+    --sg-text: #edf3fb;
+    --sg-muted: #a6b5ca;
+    --sg-accent: #748cff;
+}
+[data-testid="stAppViewContainer"] {
+    background: var(--sg-bg);
+    color: var(--sg-text);
+}
+[data-testid="stHeader"] {
+    background: rgba(11, 18, 32, 0.85);
+}
+[data-testid="stSidebar"] {
+    background: #0e192b;
+    border-right: 1px solid var(--sg-border);
+}
+.block-container {
+    max-width: 1200px;
+    padding-top: 2rem;
+    padding-bottom: 3rem;
+}
+h1, h2, h3 {
+    color: #f5f8ff;
+    letter-spacing: -0.025em;
+}
+[data-testid="stMetric"] {
+    background: var(--sg-panel);
+    border: 1px solid var(--sg-border);
+    border-radius: 15px;
+    padding: 1rem 1.1rem;
+}
+[data-testid="stMetricLabel"] {
+    color: var(--sg-muted);
+}
+[data-testid="stMetricValue"] {
+    color: #f5f8ff;
+    font-weight: 700;
+}
+.stButton > button,
+.stFormSubmitButton > button,
+[data-testid="stDownloadButton"] > button {
+    border-radius: 10px;
+    min-height: 2.65rem;
+    font-weight: 650;
+}
+.stButton > button[kind="primary"],
+.stFormSubmitButton > button[kind="primary"] {
+    background: var(--sg-accent);
+    border: 1px solid var(--sg-accent);
+    color: white;
+}
+[data-testid="stDataFrame"],
+[data-testid="stTable"] {
+    border: 1px solid var(--sg-border);
+    border-radius: 12px;
+    overflow: hidden;
+}
+div[data-baseweb="input"] > div,
+div[data-baseweb="select"] > div,
+div[data-baseweb="textarea"] {
+    border-radius: 10px;
+}
+div[data-testid="stAlert"] {
+    border-radius: 12px;
+}
+hr {
+    border-color: var(--sg-border);
+}
+</style>
+""", unsafe_allow_html=True))
 
 TARGET = 80.0
 
