@@ -1,7 +1,13 @@
 import pandas as pd
 import streamlit as st
 
-st.set_page_config(st.markdown("""
+st.set_page_config(
+    page_title="SkillGap AI",
+    page_icon="🎯",
+    layout="wide",
+)
+
+st.markdown("""
 <style>
 :root {
     --sg-bg: #0b1220;
@@ -75,7 +81,7 @@ hr {
     border-color: var(--sg-border);
 }
 </style>
-""", unsafe_allow_html=True))
+""", unsafe_allow_html=True)
 
 TARGET = 80.0
 
